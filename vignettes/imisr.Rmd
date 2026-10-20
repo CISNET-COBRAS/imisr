@@ -1,0 +1,246 @@
+---
+title: "Getting started with imisr"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with imisr}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
+                      fig.height = 5)
+```
+
+```{r setup}
+library(imisr)
+```
+
+## What IMIS does
+
+Incremental mixture importance sampling (IMIS) draws from a posterior
+distribution $p(\theta \mid y) \propto p(\theta) L(\theta)$ and, at no extra
+cost, estimates the marginal likelihood
+$p(y) = \int p(\theta) L(\theta)\, d\theta$, which Bayes factors and Bayesian
+model averaging need.
+
+It starts from a large sample of the prior. Draws with large importance
+weights sit in regions the current sampling function covers poorly, so IMIS
+places a multivariate normal component on the highest-weight draw, samples
+from it, and recomputes all weights against the enlarged mixture. It repeats
+until the weights are close to uniform. Because the prior always stays in
+the mixture, the weights are bounded and the estimates are unbiased (Raftery
+and Bao, 2010).
+
+The draws are independent, so there is no burn-in, no thinning and no
+autocorrelation. The method is well suited to posteriors that are
+concentrated on thin ridges or have several modes, which are typical when
+calibrating mechanistic and simulation models.
+
+## The three functions you write
+
+`imis()` needs:
+
+| Argument | What it does | Returns |
+|---|---|---|
+| `sample_prior(n)` | draws `n` parameter sets from the prior | `n` x `d` matrix with column names |
+| `log_prior(theta)` | log prior density (normalized) | one value per parameter set |
+| `log_likelihood(theta)` | log-likelihood | one value per parameter set |
+
+By default, `log_prior()` and `log_likelihood()` receive a matrix with one
+parameter set per row. Set `vectorized = FALSE` to write them for a single
+named parameter vector instead, which is usually more natural for simulation
+models (see `vignette("calibrating-simulation-models")`).
+
+Everything is on the **log scale**. A log-likelihood of $-2400$ is
+unremarkable when calibrating to many targets, but $e^{-2400}$ is zero in
+double precision, which is why the original 'IMIS' package could fail on
+such problems.
+
+## A first example with a known answer
+
+Four observations $y_i \sim N(\mu, 1)$ with prior $\mu \sim N(0, 2^2)$. The
+posterior and the marginal likelihood are available in closed form, so we
+can check the answer.
+
+```{r conjugate}
+y <- c(1.2, 0.8, 1.9, 1.4)
+
+log_likelihood <- function(theta) {
+  vapply(theta[, "mu"], function(m) sum(dnorm(y, m, 1, log = TRUE)), 0)
+}
+log_prior <- function(theta) dnorm(theta[, "mu"], 0, 2, log = TRUE)
+sample_prior <- function(n) cbind(mu = rnorm(n, 0, 2))
+
+set.seed(1)
+fit <- imis(log_likelihood, log_prior, sample_prior, verbose = FALSE)
+fit
+```
+
+The exact values:
+
+```{r conjugate-exact}
+post_prec <- length(y) + 1 / 4
+c(mean = sum(y) / post_prec, sd = sqrt(1 / post_prec))
+s_y <- diag(length(y)) + 4
+c(log_ml = -0.5 * (length(y) * log(2 * pi) +
+                     determinant(s_y)$modulus[1] +
+                     drop(y %*% solve(s_y, y))))
+```
+
+`summary()` uses all IMIS draws with their importance weights. The
+equally weighted resample, for downstream simulation, is in `fit$resample`
+(or `as.matrix(fit)`).
+
+```{r resample}
+head(as.matrix(fit))
+```
+
+### Diagnostics
+
+`plot(fit)` shows how the estimates evolved over the stages. The marginal
+likelihood estimate should settle down, the effective sample size (ESS) should
+grow, and IMIS stops once the expected number of unique points in the
+resample reaches the dashed line, $1 - e^{-1} \approx 63\%$ of the resample
+size. That is the value expected if the sampling function were exactly the
+posterior.
+
+```{r diagnostics}
+plot(fit)
+```
+
+The same numbers are in `fit$diagnostics`.
+
+## Several modes: IMIS-opt and several components per iteration
+
+IMIS can only refine regions where the prior sample landed. When the
+posterior has several modes that the prior sample may have missed, use an
+*optimization stage* (`n_optim`). It runs that many local optimizations from
+high-weight draws and starts the mixture with a normal component at each
+mode. Alternatively, adding several components per iteration
+(`n_centers`) spreads the new components across separate high-weight
+regions.
+
+The bimodal example from Raftery and Bao (2010) has two narrow, oppositely
+correlated modes:
+
+```{r bimodal}
+ar_chol <- function(r) chol(matrix(c(1, r, r, 1), 2))
+log_lik_bimodal <- function(theta) {
+  l1 <- mvn_log(theta, c(0, 0), ar_chol(-0.95))
+  l2 <- mvn_log(theta, c(9, 9), ar_chol(0.95))
+  log(0.5) + pmax(l1, l2) + log1p(exp(-abs(l1 - l2)))
+}
+mvn_log <- function(x, mu, r) {
+  z <- backsolve(r, t(x) - mu, transpose = TRUE)
+  -0.5 * colSums(z^2) - sum(log(diag(r))) - log(2 * pi)
+}
+log_prior_box <- function(theta) rowSums(dunif(theta, -3, 12, log = TRUE))
+sample_box <- function(n) {
+  matrix(runif(2 * n, -3, 12), n, 2, dimnames = list(NULL, c("a", "b")))
+}
+
+set.seed(2)
+fit_opt <- imis(log_lik_bimodal, log_prior_box, sample_box, n_optim = 5,
+                verbose = FALSE)
+fit_opt
+```
+
+Half of the resample should be in each mode, and the exact log marginal
+likelihood is $-2\log 15 \approx -5.416$:
+
+```{r bimodal-check}
+mean(fit_opt$resample[, "a"] > 4.5)
+```
+
+```{r bimodal-plot, fig.height = 6}
+plot(fit_opt, type = "pairs")
+```
+
+Red stars are the mixture component centers.
+
+## Which settings to change
+
+| Situation | Setting |
+|---|---|
+| Model runs are slow | `parallel = TRUE` (see below) |
+| Posterior may be multimodal, or far from the prior | `n_optim = 10` |
+| Several separated high-probability regions | `n_centers > 1` and/or `sampling = "mixture"` |
+| Stopping too early or too late | `target_unique`, `max_iter` |
+| Each new component should be estimated from more draws | `n_per_component` |
+| Some parameter combinations make the model invalid | `catch_errors = TRUE` |
+| Likelihood written for one parameter vector | `vectorized = FALSE` |
+
+`sampling = "incremental"` (the default, as in Raftery and Bao, 2010) takes
+new draws only from the newest components. `sampling = "mixture"` (as in
+Steele, Raftery and Emond, 2006) draws from the whole current mixture,
+including a share `prior_weight` from the prior, so earlier components keep
+getting draws. Either way every draw is weighted against the full mixture,
+so both are unbiased.
+
+## Parallel computing
+
+When one model run takes milliseconds or more, evaluating the likelihood is
+the bottleneck. With `parallel = TRUE`, `imis()` splits each batch of draws
+into blocks evaluated in parallel through the
+[future](https://future.futureverse.org) framework. You choose where they
+run:
+
+```{r parallel, eval = FALSE}
+library(future)
+plan(multisession, workers = 4) # or multicore, cluster, future.batchtools...
+fit <- imis(log_likelihood, log_prior, sample_prior, parallel = TRUE)
+plan(sequential)
+```
+
+Results are reproducible with `set.seed()`. For fast models like the ones in
+this vignette, sending work to other R processes costs more than it saves.
+Time a serial run first.
+
+## Comparing models
+
+The marginal likelihoods of two models fitted to the same data give their
+Bayes factor, with a Monte Carlo standard error:
+
+```{r bf}
+set.seed(3)
+fit_shifted <- imis(log_likelihood,
+                    function(theta) dnorm(theta[, "mu"], 3, 1, log = TRUE),
+                    function(n) cbind(mu = rnorm(n, 3, 1)), verbose = FALSE)
+bayes_factor(fit, fit_shifted)
+```
+
+## Coming from the 'IMIS' package
+
+`imis_legacy()` accepts the arguments of the archived `IMIS::IMIS()` and
+finds `prior()`, `likelihood()` and `sample.prior()` in the calling
+environment, as `IMIS()` did. Old scripts run unchanged:
+
+```{r legacy, eval = FALSE}
+result <- imis_legacy(B = 1000, B.re = 3000, number_k = 100, D = 0)
+result$resample
+```
+
+To move to `imis()`:
+
+| `IMIS()` | `imis()` |
+|---|---|
+| `likelihood(x)` (natural scale) | `log_likelihood` (log scale) |
+| `prior(x)` | `log_prior` |
+| `sample.prior(n)` | `sample_prior` |
+| `B` | `n_per_component` |
+| `B * 10` (fixed) | `n_initial` |
+| `B.re` | `n_resample` |
+| `number_k` | `max_iter + 1` |
+| `D` | `n_optim` |
+| `$stat`, `$center` | `$diagnostics`, `$centers` |
+
+## References
+
+Raftery AE, Bao L (2010). Estimating and projecting trends in HIV/AIDS
+generalized epidemics using incremental mixture importance sampling.
+*Biometrics*, 66(4), 1162-1173.
+
+Steele RJ, Raftery AE, Emond MJ (2006). Computing normalizing constants for
+finite mixture models via incremental mixture importance sampling (IMIS).
+*Journal of Computational and Graphical Statistics*, 15(3), 712-734.

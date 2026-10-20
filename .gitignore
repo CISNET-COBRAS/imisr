@@ -40,3 +40,9 @@ vignettes/*.pdf
 
 # Mac OS temp files
 .DS_Store
+
+# pkgdown site
+docs/
+
+# Rendered README/vignette scratch
+README.html

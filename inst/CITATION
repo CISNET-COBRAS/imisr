@@ -1,0 +1,34 @@
+bibentry(
+  bibtype = "Manual",
+  title = "{imisr}: Incremental Mixture Importance Sampling",
+  author = c(person("Fernando", "Alarid-Escudero"), person("Hawre", "Jalal")),
+  year = if (is.null(meta$`Date/Publication`)) {
+    format(Sys.Date(), "%Y")
+  } else {
+    sub("-.*", "", meta$`Date/Publication`)
+  },
+  note = paste("R package version", meta$Version),
+  url = "https://github.com/CISNET-COBRAS/imis_reloaded",
+  textVersion = paste0(
+    "Alarid-Escudero F, Jalal H. imisr: Incremental Mixture Importance ",
+    "Sampling. R package version ", meta$Version, "."
+  )
+)
+
+bibentry(
+  bibtype = "Article",
+  title = paste("Estimating and Projecting Trends in HIV/AIDS Generalized",
+                "Epidemics Using Incremental Mixture Importance Sampling"),
+  author = c(person("Adrian E.", "Raftery"), person("Le", "Bao")),
+  journal = "Biometrics",
+  year = "2010",
+  volume = "66",
+  number = "4",
+  pages = "1162--1173",
+  doi = "10.1111/j.1541-0420.2010.01399.x",
+  textVersion = paste(
+    "Raftery AE, Bao L (2010). Estimating and projecting trends in HIV/AIDS",
+    "generalized epidemics using incremental mixture importance sampling.",
+    "Biometrics, 66(4), 1162-1173. doi:10.1111/j.1541-0420.2010.01399.x"
+  )
+)

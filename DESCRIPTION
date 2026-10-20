@@ -1,0 +1,56 @@
+Type: Package
+Package: imisr
+Title: Incremental Mixture Importance Sampling
+Version: 0.1.0
+Authors@R: c(
+    person("Fernando", "Alarid-Escudero", , "falarid@stanford.edu",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-5076-1172")),
+    person("Hawre", "Jalal", , "hjalal@uottawa.ca", role = "aut",
+           comment = c(ORCID = "0000-0002-8224-6834")),
+    person("Adrian E.", "Raftery", role = "ctb",
+           comment = "Author of the original 'IMIS' package"),
+    person("Le", "Bao", role = "ctb",
+           comment = "Author of the original 'IMIS' package")
+  )
+Description: Draws samples from a posterior distribution and estimates the
+    marginal likelihood (model evidence) with incremental mixture
+    importance sampling (IMIS). Starting from a sample of the prior, the
+    importance sampling function is built up iteratively as a defensive
+    mixture of the prior and multivariate normal components centred where
+    the current importance weights are largest, optionally after an
+    optimization stage that locates local posterior modes ("IMIS-opt").
+    Designed for calibrating mechanistic and simulation models, whose
+    posteriors are often ridge-shaped or multimodal. Computations are
+    done on the log scale; several components can be added per iteration;
+    new draws can come from the newest components (Raftery and Bao, 2010
+    <doi:10.1111/j.1541-0420.2010.01399.x>) or from the whole current
+    mixture (Steele, Raftery and Emond, 2006
+    <doi:10.1198/106186006X132358>); and likelihood evaluations can run
+    in parallel through the 'future' framework.
+License: GPL (>= 3)
+URL: https://github.com/CISNET-COBRAS/imis_reloaded
+BugReports: https://github.com/CISNET-COBRAS/imis_reloaded/issues
+Depends:
+    R (>= 4.0.0)
+Imports:
+    graphics,
+    grDevices,
+    stats,
+    utils
+Suggests:
+    future,
+    future.apply,
+    knitr,
+    mvtnorm,
+    rmarkdown,
+    testthat (>= 3.0.0)
+VignetteBuilder:
+    knitr
+Config/testthat/edition: 3
+Encoding: UTF-8
+Language: en-US
+LazyData: true
+LazyDataCompression: xz
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.1.1

@@ -1,0 +1,255 @@
+---
+title: "Calibrating simulation models with IMIS"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Calibrating simulation models with IMIS}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
+                      fig.height = 4.5)
+```
+
+```{r setup}
+library(imisr)
+```
+
+Calibration estimates the inputs of a simulation model that cannot be
+observed directly by making the model's outputs agree with data, called
+*calibration targets*. Bayesian calibration combines (1) prior distributions
+for the inputs, (2) a likelihood that compares model outputs with the
+targets, and (3) the model, which maps inputs to outputs (Menzies et al.,
+2017). IMIS then samples the posterior distribution of the inputs, and
+running the model on those samples propagates the calibrated uncertainty to
+any outcome.
+
+This vignette calibrates two cohort state-transition models included in the
+package: the Sick-Sicker model and a three-state cancer relative survival
+model (see `?example_models`).
+
+## The Sick-Sicker model
+
+A cohort of 25-year-olds moves each year between four states: healthy (H),
+sick (S1), sicker (S2) and dead (D). We calibrate three inputs:
+
+* `p_S1S2`: annual probability of progressing from S1 to S2;
+* `hr_S1`, `hr_S2`: hazard ratios of death in S1 and S2 relative to H.
+
+The targets, in `sick_sicker_targets`, are observed survival and disease
+prevalence over 30 years and the proportion of the sick who are in S1 at
+years 10, 20 and 30, each with a standard error.
+
+```{r targets, fig.height = 3.5}
+str(sick_sicker_targets$PropSick)
+
+old_par <- par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
+for (target in names(sick_sicker_targets)) {
+  df <- sick_sicker_targets[[target]]
+  plot(df$time, df$value, ylim = range(0, df$lb, df$ub), pch = 20,
+       xlab = "Year", ylab = "Proportion", main = target)
+  arrows(df$time, df$lb, df$time, df$ub, angle = 90, code = 3,
+         length = 0.02)
+}
+par(old_par)
+```
+
+### Prior
+
+Independent uniform priors over plausible ranges:
+
+```{r prior}
+v_lb <- c(p_S1S2 = 0.01, hr_S1 = 1, hr_S2 = 1)
+v_ub <- c(p_S1S2 = 0.50, hr_S1 = 12, hr_S2 = 25)
+
+sample_prior <- function(n) {
+  m <- vapply(names(v_lb), function(p) runif(n, v_lb[[p]], v_ub[[p]]),
+              numeric(n))
+  matrix(m, nrow = n, dimnames = list(NULL, names(v_lb)))
+}
+
+log_prior <- function(theta) {
+  rowSums(vapply(names(v_lb), function(p) {
+    dunif(theta[, p], v_lb[[p]], v_ub[[p]], log = TRUE)
+  }, numeric(nrow(theta))))
+}
+```
+
+`log_prior()` must be a normalized density (here `dunif(..., log = TRUE)`)
+for the marginal likelihood to be correct. Where it is `-Inf`, IMIS does not
+run the model at all.
+
+### Likelihood
+
+Each target is treated as normally distributed around the model output, with
+its reported standard error. Simulation models run one parameter set at a
+time, so we write the log-likelihood for a single named parameter vector and
+later set `vectorized = FALSE`:
+
+```{r likelihood}
+log_likelihood <- function(params) {
+  out <- sick_sicker_markov(params)
+  sum(vapply(names(sick_sicker_targets), function(target) {
+    df <- sick_sicker_targets[[target]]
+    sum(dnorm(df$value, mean = out[[target]], sd = df$se, log = TRUE))
+  }, numeric(1)))
+}
+
+log_likelihood(c(p_S1S2 = 0.105, hr_S1 = 3, hr_S2 = 10))
+```
+
+### Calibrate
+
+Some parameter sets inside the prior ranges are impossible: when `p_S1S2` is
+large and `hr_S1` is high, the probability of staying in S1 becomes negative
+and `sick_sicker_markov()` stops with an error. `catch_errors = TRUE` gives
+those parameter sets a likelihood of zero and reports how many there were.
+
+```{r calibrate}
+set.seed(2026)
+fit <- imis(log_likelihood, log_prior, sample_prior,
+            vectorized = FALSE, vectorized_prior = TRUE,
+            catch_errors = TRUE, verbose = FALSE)
+fit
+```
+
+```{r diagnostics}
+plot(fit)
+```
+
+The posterior is far more concentrated than the prior:
+
+```{r marginals, fig.height = 3.5}
+plot(fit, type = "marginals")
+```
+
+```{r pairs, fig.height = 6}
+plot(fit, type = "pairs")
+```
+
+### Do the calibrated outputs match the targets?
+
+Run the model on the posterior resample and compare the 95% posterior
+predictive bands with the targets:
+
+```{r predictive, fig.height = 3.5}
+post <- as.matrix(fit)
+sims <- lapply(seq_len(nrow(post)), function(i) sick_sicker_markov(post[i, ]))
+
+old_par <- par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
+for (target in names(sick_sicker_targets)) {
+  df <- sick_sicker_targets[[target]]
+  m_out <- do.call(rbind, lapply(sims, `[[`, target))
+  band <- apply(m_out, 2, quantile, probs = c(0.025, 0.5, 0.975))
+  plot(df$time, df$value, ylim = range(0, df$lb, df$ub, band), pch = 20,
+       xlab = "Year", ylab = "Proportion", main = target)
+  polygon(c(df$time, rev(df$time)), c(band[1, ], rev(band[3, ])),
+          col = adjustcolor("steelblue", 0.3), border = NA)
+  lines(df$time, band[2, ], col = "steelblue", lwd = 2)
+  arrows(df$time, df$lb, df$time, df$ub, angle = 90, code = 3,
+         length = 0.02)
+}
+par(old_par)
+```
+
+The posterior resample can now replace the prior in a probabilistic
+sensitivity analysis, so that cost-effectiveness results reflect what the
+calibration targets say about the inputs.
+
+## Non-identifiability: the cancer relative survival model
+
+In the three-state cancer relative survival (CRS) model, patients without
+evidence of disease develop metastases with annual probability `p_Mets`, and
+patients with metastases die with probability `p_DieMets`. Survival depends
+on the two probabilities symmetrically, so survival data cannot tell which is
+which (Alarid-Escudero et al., 2018):
+
+```{r crs-symmetry}
+all.equal(crs_markov(c(p_Mets = 0.12, p_DieMets = 0.05)),
+          crs_markov(c(p_Mets = 0.05, p_DieMets = 0.12)))
+```
+
+The posterior therefore has two modes, mirror images across the diagonal.
+The optimization stage (`n_optim`) looks for local modes before the
+importance sampling begins:
+
+```{r crs}
+crs_lb <- c(p_Mets = 0.04, p_DieMets = 0.04)
+crs_ub <- c(p_Mets = 0.16, p_DieMets = 0.16)
+
+set.seed(2018)
+fit_crs <- imis(
+  log_likelihood = function(params) {
+    sum(dnorm(crs_targets$Surv$value, crs_markov(params)$Surv,
+              crs_targets$Surv$se, log = TRUE))
+  },
+  log_prior = function(params) {
+    sum(dunif(params, crs_lb, crs_ub, log = TRUE))
+  },
+  sample_prior = function(n) {
+    cbind(p_Mets = runif(n, crs_lb[1], crs_ub[1]),
+          p_DieMets = runif(n, crs_lb[2], crs_ub[2]))
+  },
+  vectorized = FALSE, n_optim = 5, verbose = FALSE
+)
+fit_crs
+```
+
+```{r crs-pairs, fig.height = 5}
+plot(fit_crs$resample, col = adjustcolor("black", 0.2), pch = 20,
+     xlim = c(crs_lb[1], crs_ub[1]), ylim = c(crs_lb[2], crs_ub[2]))
+abline(0, 1, lty = 2)
+points(fit_crs$centers, col = "red", pch = 8)
+```
+
+Each mode holds about half of the posterior:
+
+```{r crs-split}
+mean(fit_crs$resample[, "p_Mets"] > fit_crs$resample[, "p_DieMets"])
+```
+
+Here the posterior mean falls in the valley between the modes, where the
+model fits the targets poorly, and the marginal summaries and the
+correlation between the two parameters describe neither mode. Report the
+modes, or add
+targets that separate the two parameters (for example, the proportion of
+survivors with metastases), instead of summarizing a multimodal posterior by
+its mean.
+
+## Slow models: running in parallel
+
+Both models here run in a fraction of a millisecond, so parallel evaluation
+would only add overhead. For a microsimulation or a model that takes
+seconds per run, evaluate the likelihood on several workers:
+
+```{r parallel, eval = FALSE}
+library(future)
+plan(multisession, workers = parallelly::availableCores(omit = 1))
+fit <- imis(log_likelihood, log_prior, sample_prior,
+            vectorized = FALSE, vectorized_prior = TRUE,
+            catch_errors = TRUE, parallel = TRUE)
+plan(sequential)
+```
+
+Each batch of draws is split into one block per worker, so the cost of
+sending work to the workers is paid once per block rather than once per
+model run.
+
+## References
+
+Alarid-Escudero F, MacLehose RF, Peralta Y, Kuntz KM, Enns EA (2018).
+Nonidentifiability in model calibration and implications for medical
+decision making. *Medical Decision Making*, 38(7), 810-821.
+
+Menzies NA, Soeteman DI, Pandya A, Kim JJ (2017). Bayesian methods for
+calibrating health policy models: a tutorial. *PharmacoEconomics*, 35(6),
+613-624.
+
+Raftery AE, Bao L (2010). Estimating and projecting trends in HIV/AIDS
+generalized epidemics using incremental mixture importance sampling.
+*Biometrics*, 66(4), 1162-1173.
+
+Ryckman T, Luby S, Owens DK, Bendavid E, Goldhaber-Fiebert JD (2020).
+Methods for model calibration under high uncertainty: modeling cholera in
+Bangladesh. *Medical Decision Making*. doi:10.1177/0272989X20938683.
