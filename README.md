@@ -47,32 +47,60 @@ survival, prevalence and the proportion of the sick in the "sick" state:
 ```r
 library(imisr)
 
-v_lb <- c(p_S1S2 = 0.01, hr_S1 = 1, hr_S2 = 1)
-v_ub <- c(p_S1S2 = 0.50, hr_S1 = 12, hr_S2 = 25)
+lst_targets <- sick_sicker_targets
+v_target_names <- names(lst_targets)
+v_param_names <- c("p_S1S2", "hr_S1", "hr_S2")
+v_lb <- c(p_S1S2 = 0.01, hr_S1 = 1, hr_S2 = 1)  # lower bounds
+v_ub <- c(p_S1S2 = 0.50, hr_S1 = 12, hr_S2 = 25) # upper bounds
 
-# Prior: independent uniforms
-sample_prior <- function(n) {
-  sapply(names(v_lb), function(p) runif(n, v_lb[[p]], v_ub[[p]]))
+# Prior: independent uniforms, one column per parameter, indexed by name
+sample_prior <- function(n_samp) {
+  m_param_samp <- matrix(NA_real_, nrow = n_samp,
+                         ncol = length(v_param_names),
+                         dimnames = list(NULL, v_param_names))
+  for (s_par in v_param_names) {
+    m_param_samp[, s_par] <- runif(n_samp, v_lb[[s_par]], v_ub[[s_par]])
+  }
+  m_param_samp
 }
-log_prior <- function(params) sum(dunif(params, v_lb, v_ub, log = TRUE))
+calc_log_prior <- function(v_params) {
+  if (is.null(dim(v_params))) v_params <- t(v_params)
+  v_lprior <- rep(0, nrow(v_params))
+  for (s_par in v_param_names) {
+    v_lprior <- v_lprior + dunif(v_params[, s_par], v_lb[[s_par]],
+                                 v_ub[[s_par]], log = TRUE)
+  }
+  v_lprior
+}
 
-# Likelihood: targets normally distributed around the model outputs
-log_likelihood <- function(params) {
-  out <- sick_sicker_markov(params)
-  sum(vapply(names(sick_sicker_targets), function(target) {
-    df <- sick_sicker_targets[[target]]
-    sum(dnorm(df$value, out[[target]], df$se, log = TRUE))
-  }, numeric(1)))
+# Likelihood: targets normally distributed around the model outputs. The
+# model runs one parameter set (row) at a time; parameter sets for which it
+# fails get a log-likelihood of -Inf.
+calc_log_lik <- function(v_params) {
+  if (is.null(dim(v_params))) v_params <- t(v_params)
+  m_llik <- matrix(-Inf, nrow = nrow(v_params), ncol = length(v_target_names),
+                   dimnames = list(NULL, v_target_names))
+  for (j in seq_len(nrow(v_params))) {
+    l_out <- tryCatch(sick_sicker_markov(v_params[j, ]),
+                      error = function(e) NULL)
+    if (is.null(l_out)) next
+    m_llik[j, "Surv"] <- sum(dnorm(lst_targets$Surv$value, l_out$Surv,
+                                   lst_targets$Surv$se, log = TRUE))
+    m_llik[j, "Prev"] <- sum(dnorm(lst_targets$Prev$value, l_out$Prev,
+                                   lst_targets$Prev$se, log = TRUE))
+    m_llik[j, "PropSick"] <- sum(dnorm(lst_targets$PropSick$value,
+                                       l_out$PropSick,
+                                       lst_targets$PropSick$se, log = TRUE))
+  }
+  rowSums(m_llik)
 }
 
 set.seed(2026)
-fit <- imis(log_likelihood, log_prior, sample_prior,
-            vectorized = FALSE,   # functions take one parameter vector
-            catch_errors = TRUE)  # some inputs make the model invalid
+fit <- imis(calc_log_lik, calc_log_prior, sample_prior)
 fit
 #> Incremental mixture importance sampling
 #>   Converged after 16 iteration(s); 7800 draws, 16 normal component(s)
-#>   7776 likelihood evaluations in 1.4 s
+#>   7776 likelihood evaluations in 1.6 s
 #>   ESS = 2961.7; expected unique points in resample = 1927 / 3000
 #>   log marginal likelihood = 168.0653 (SE 0.0145)
 #>
@@ -84,15 +112,14 @@ fit
 
 plot(fit)                      # convergence diagnostics
 plot(fit, type = "pairs")      # posterior draws and mixture centers
-post <- as.matrix(fit)         # equally weighted posterior draws for PSA
+m_post <- as.matrix(fit)       # equally weighted posterior draws for PSA
 ```
 
 For a slow model, run the likelihood evaluations in parallel:
 
 ```r
 future::plan(future::multisession, workers = 8)
-fit <- imis(log_likelihood, log_prior, sample_prior,
-            vectorized = FALSE, catch_errors = TRUE, parallel = TRUE)
+fit <- imis(calc_log_lik, calc_log_prior, sample_prior, parallel = TRUE)
 ```
 
 See `vignette("imisr")` to get started, and

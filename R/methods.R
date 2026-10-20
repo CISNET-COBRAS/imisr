@@ -210,14 +210,14 @@ as.data.frame.imis <- function(x, row.names = NULL, optional = FALSE,
 #' @examples
 #' y <- c(0.4, 1.1, 0.9)
 #' m_free <- imis(
-#'   function(t) vapply(t[, 1], function(m) sum(dnorm(y, m, 1, log = TRUE)), 0),
-#'   function(t) dnorm(t[, 1], 0, 1, log = TRUE),
+#'   function(t) colSums(dnorm(outer(y, t[, "mu"], "-"), log = TRUE)),
+#'   function(t) dnorm(t[, "mu"], 0, 1, log = TRUE),
 #'   function(n) cbind(mu = rnorm(n)),
 #'   verbose = FALSE
 #' )
 #' m_shift <- imis(
-#'   function(t) vapply(t[, 1], function(m) sum(dnorm(y, m, 1, log = TRUE)), 0),
-#'   function(t) dnorm(t[, 1], 3, 1, log = TRUE),
+#'   function(t) colSums(dnorm(outer(y, t[, "mu"], "-"), log = TRUE)),
+#'   function(t) dnorm(t[, "mu"], 3, 1, log = TRUE),
 #'   function(n) cbind(mu = rnorm(n, 3)),
 #'   verbose = FALSE
 #' )

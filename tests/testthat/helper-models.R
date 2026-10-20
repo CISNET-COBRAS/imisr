@@ -3,7 +3,7 @@
 conj_y <- c(1.2, 0.8, 1.9, 1.4)
 conj_s0 <- 2
 conj_ll <- function(theta) {
-  vapply(theta[, 1], function(m) sum(dnorm(conj_y, m, 1, log = TRUE)), 0)
+  colSums(dnorm(outer(conj_y, theta[, 1], "-"), log = TRUE))
 }
 conj_lp <- function(theta) dnorm(theta[, 1], 0, conj_s0, log = TRUE)
 conj_sp <- function(n) cbind(mu = rnorm(n, 0, conj_s0))

@@ -95,8 +95,9 @@
 #'   See *Stopping rule*.
 #' @param vectorized Whether `log_likelihood` takes a matrix of parameter
 #'   sets (`TRUE`) or a single named parameter vector (`FALSE`). Simulation
-#'   models usually run one parameter set at a time, so for them write the
-#'   log-likelihood for one parameter vector and set `vectorized = FALSE`.
+#'   models usually run one parameter set at a time: either loop over the
+#'   rows inside `log_likelihood` (see the vignettes), or write it for one
+#'   parameter vector and set `vectorized = FALSE`.
 #' @param vectorized_prior Same as `vectorized`, for `log_prior`. Defaults to
 #'   the value of `vectorized`.
 #' @param parallel Whether to evaluate the likelihood in parallel with
@@ -160,8 +161,10 @@
 #' # likelihood are known exactly.
 #' y <- c(1.2, 0.8, 1.9, 1.4)
 #' fit <- imis(
+#'   # outer() gives y_i - mu with one column per parameter set, so the
+#'   # log-likelihood of every parameter set is computed at once
 #'   log_likelihood = function(theta) {
-#'     vapply(theta[, "mu"], function(m) sum(dnorm(y, m, 1, log = TRUE)), 0)
+#'     colSums(dnorm(outer(y, theta[, "mu"], "-"), log = TRUE))
 #'   },
 #'   log_prior = function(theta) dnorm(theta[, "mu"], 0, 2, log = TRUE),
 #'   sample_prior = function(n) cbind(mu = rnorm(n, 0, 2)),

@@ -25,7 +25,7 @@ test_that("parallel evaluation works on separate R sessions", {
 
   y <- conj_y
   ll <- function(th) {
-    vapply(th[, 1], function(m) sum(dnorm(y, m, 1, log = TRUE)), 0)
+    colSums(dnorm(outer(y, th[, 1], "-"), log = TRUE))
   }
   set.seed(302)
   fit <- imis(ll, conj_lp, conj_sp, parallel = TRUE, verbose = FALSE)

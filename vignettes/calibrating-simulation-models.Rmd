@@ -42,75 +42,112 @@ prevalence over 30 years and the proportion of the sick who are in S1 at
 years 10, 20 and 30, each with a standard error.
 
 ```{r targets, fig.height = 3.5}
-str(sick_sicker_targets$PropSick)
+lst_targets <- sick_sicker_targets
+v_target_names <- names(lst_targets)
+str(lst_targets$PropSick)
 
 old_par <- par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
-for (target in names(sick_sicker_targets)) {
-  df <- sick_sicker_targets[[target]]
-  plot(df$time, df$value, ylim = range(0, df$lb, df$ub), pch = 20,
-       xlab = "Year", ylab = "Proportion", main = target)
-  arrows(df$time, df$lb, df$time, df$ub, angle = 90, code = 3,
-         length = 0.02)
+for (s_target in v_target_names) {
+  df_target <- lst_targets[[s_target]]
+  plot(df_target$time, df_target$value,
+       ylim = range(0, df_target$lb, df_target$ub), pch = 20,
+       xlab = "Year", ylab = "Proportion", main = s_target)
+  arrows(df_target$time, df_target$lb, df_target$time, df_target$ub,
+         angle = 90, code = 3, length = 0.02)
 }
 par(old_par)
 ```
 
 ### Prior
 
-Independent uniform priors over plausible ranges:
+Independent uniform priors over plausible ranges. Both functions loop over
+the parameters, indexing the bounds by name, and handle all draws of a
+parameter at once:
 
 ```{r prior}
-v_lb <- c(p_S1S2 = 0.01, hr_S1 = 1, hr_S2 = 1)
-v_ub <- c(p_S1S2 = 0.50, hr_S1 = 12, hr_S2 = 25)
+v_param_names <- c("p_S1S2", "hr_S1", "hr_S2")
+v_lb <- c(p_S1S2 = 0.01, hr_S1 = 1, hr_S2 = 1)  # lower bounds
+v_ub <- c(p_S1S2 = 0.50, hr_S1 = 12, hr_S2 = 25) # upper bounds
 
-sample_prior <- function(n) {
-  m <- vapply(names(v_lb), function(p) runif(n, v_lb[[p]], v_ub[[p]]),
-              numeric(n))
-  matrix(m, nrow = n, dimnames = list(NULL, names(v_lb)))
+sample_prior <- function(n_samp) {
+  m_param_samp <- matrix(NA_real_, nrow = n_samp,
+                         ncol = length(v_param_names),
+                         dimnames = list(NULL, v_param_names))
+  for (s_par in v_param_names) {
+    m_param_samp[, s_par] <- runif(n_samp, min = v_lb[[s_par]],
+                                   max = v_ub[[s_par]])
+  }
+  m_param_samp
 }
 
-log_prior <- function(theta) {
-  rowSums(vapply(names(v_lb), function(p) {
-    dunif(theta[, p], v_lb[[p]], v_ub[[p]], log = TRUE)
-  }, numeric(nrow(theta))))
+calc_log_prior <- function(v_params) {
+  if (is.null(dim(v_params))) v_params <- t(v_params) # vector to 1-row matrix
+  v_lprior <- rep(0, nrow(v_params))
+  for (s_par in v_param_names) {
+    v_lprior <- v_lprior + dunif(v_params[, s_par], min = v_lb[[s_par]],
+                                 max = v_ub[[s_par]], log = TRUE)
+  }
+  v_lprior
 }
 ```
 
-`log_prior()` must be a normalized density (here `dunif(..., log = TRUE)`)
-for the marginal likelihood to be correct. Where it is `-Inf`, IMIS does not
-run the model at all.
+`calc_log_prior()` must be a normalized density (here
+`dunif(..., log = TRUE)`) for the marginal likelihood to be correct. Where it
+is `-Inf`, IMIS does not run the model at all.
 
 ### Likelihood
 
 Each target is treated as normally distributed around the model output, with
-its reported standard error. Simulation models run one parameter set at a
-time, so we write the log-likelihood for a single named parameter vector and
-later set `vectorized = FALSE`:
+its reported standard error. Each target has its own line, so a target that
+needs a different distribution (binomial, Poisson, ...) can get one.
+
+`imis()` passes a matrix with one parameter set per row. Simulation models run
+one parameter set at a time, so `calc_log_lik()` runs the model on each row.
+Some parameter sets inside the prior ranges are impossible: when `p_S1S2` is
+large and `hr_S1` is high, the probability of staying in S1 becomes negative
+and `sick_sicker_markov()` stops with an error. `tryCatch()` gives those
+parameter sets a log-likelihood of `-Inf` (a likelihood of zero).
 
 ```{r likelihood}
-log_likelihood <- function(params) {
-  out <- sick_sicker_markov(params)
-  sum(vapply(names(sick_sicker_targets), function(target) {
-    df <- sick_sicker_targets[[target]]
-    sum(dnorm(df$value, mean = out[[target]], sd = df$se, log = TRUE))
-  }, numeric(1)))
+calc_log_lik <- function(v_params) {
+  if (is.null(dim(v_params))) v_params <- t(v_params) # vector to 1-row matrix
+  n_samp <- nrow(v_params)
+  m_llik <- matrix(-Inf, nrow = n_samp, ncol = length(v_target_names),
+                   dimnames = list(NULL, v_target_names))
+  for (j in seq_len(n_samp)) {
+    l_out <- tryCatch(sick_sicker_markov(v_params[j, ]),
+                      error = function(e) NULL)
+    if (is.null(l_out)) next # impossible parameter set: log-likelihood -Inf
+    # TARGET 1: survival
+    m_llik[j, "Surv"] <- sum(dnorm(lst_targets$Surv$value,
+                                   mean = l_out$Surv,
+                                   sd = lst_targets$Surv$se, log = TRUE))
+    # TARGET 2: prevalence
+    m_llik[j, "Prev"] <- sum(dnorm(lst_targets$Prev$value,
+                                   mean = l_out$Prev,
+                                   sd = lst_targets$Prev$se, log = TRUE))
+    # TARGET 3: proportion of the sick in S1
+    m_llik[j, "PropSick"] <- sum(dnorm(lst_targets$PropSick$value,
+                                       mean = l_out$PropSick,
+                                       sd = lst_targets$PropSick$se,
+                                       log = TRUE))
+  }
+  rowSums(m_llik)
 }
 
-log_likelihood(c(p_S1S2 = 0.105, hr_S1 = 3, hr_S2 = 10))
+calc_log_lik(c(p_S1S2 = 0.105, hr_S1 = 3, hr_S2 = 10))
+calc_log_lik(sample_prior(5))
 ```
+
+Alternatively, write the log-likelihood for a single named parameter vector
+and let `imis()` do the loop with `vectorized = FALSE`; `catch_errors = TRUE`
+then turns model errors into `-Inf` and reports how many there were.
 
 ### Calibrate
 
-Some parameter sets inside the prior ranges are impossible: when `p_S1S2` is
-large and `hr_S1` is high, the probability of staying in S1 becomes negative
-and `sick_sicker_markov()` stops with an error. `catch_errors = TRUE` gives
-those parameter sets a likelihood of zero and reports how many there were.
-
 ```{r calibrate}
 set.seed(2026)
-fit <- imis(log_likelihood, log_prior, sample_prior,
-            vectorized = FALSE, vectorized_prior = TRUE,
-            catch_errors = TRUE, verbose = FALSE)
+fit <- imis(calc_log_lik, calc_log_prior, sample_prior, verbose = FALSE)
 fit
 ```
 
@@ -134,21 +171,24 @@ Run the model on the posterior resample and compare the 95% posterior
 predictive bands with the targets:
 
 ```{r predictive, fig.height = 3.5}
-post <- as.matrix(fit)
-sims <- lapply(seq_len(nrow(post)), function(i) sick_sicker_markov(post[i, ]))
+m_post <- as.matrix(fit)
+l_sims <- lapply(seq_len(nrow(m_post)),
+                 function(i) sick_sicker_markov(m_post[i, ]))
 
 old_par <- par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
-for (target in names(sick_sicker_targets)) {
-  df <- sick_sicker_targets[[target]]
-  m_out <- do.call(rbind, lapply(sims, `[[`, target))
-  band <- apply(m_out, 2, quantile, probs = c(0.025, 0.5, 0.975))
-  plot(df$time, df$value, ylim = range(0, df$lb, df$ub, band), pch = 20,
-       xlab = "Year", ylab = "Proportion", main = target)
-  polygon(c(df$time, rev(df$time)), c(band[1, ], rev(band[3, ])),
+for (s_target in v_target_names) {
+  df_target <- lst_targets[[s_target]]
+  m_out <- do.call(rbind, lapply(l_sims, `[[`, s_target))
+  m_band <- apply(m_out, 2, quantile, probs = c(0.025, 0.5, 0.975))
+  plot(df_target$time, df_target$value,
+       ylim = range(0, df_target$lb, df_target$ub, m_band), pch = 20,
+       xlab = "Year", ylab = "Proportion", main = s_target)
+  polygon(c(df_target$time, rev(df_target$time)),
+          c(m_band[1, ], rev(m_band[3, ])),
           col = adjustcolor("steelblue", 0.3), border = NA)
-  lines(df$time, band[2, ], col = "steelblue", lwd = 2)
-  arrows(df$time, df$lb, df$time, df$ub, angle = 90, code = 3,
-         length = 0.02)
+  lines(df_target$time, m_band[2, ], col = "steelblue", lwd = 2)
+  arrows(df_target$time, df_target$lb, df_target$time, df_target$ub,
+         angle = 90, code = 3, length = 0.02)
 }
 par(old_par)
 ```
@@ -171,34 +211,49 @@ all.equal(crs_markov(c(p_Mets = 0.12, p_DieMets = 0.05)),
 ```
 
 The posterior therefore has two modes, mirror images across the diagonal.
+
+`sample_prior()` and `calc_log_prior()` read the parameter names and bounds
+by name, so they work unchanged once these are redefined. Only the
+likelihood, which runs the model and compares it with the targets, is new:
+
+```{r crs-setup}
+lst_targets <- crs_targets
+v_target_names <- names(lst_targets)
+v_param_names <- c("p_Mets", "p_DieMets")
+v_lb <- c(p_Mets = 0.04, p_DieMets = 0.04) # lower bounds
+v_ub <- c(p_Mets = 0.16, p_DieMets = 0.16) # upper bounds
+
+calc_log_lik <- function(v_params) {
+  if (is.null(dim(v_params))) v_params <- t(v_params) # vector to 1-row matrix
+  n_samp <- nrow(v_params)
+  m_llik <- matrix(-Inf, nrow = n_samp, ncol = length(v_target_names),
+                   dimnames = list(NULL, v_target_names))
+  for (j in seq_len(n_samp)) {
+    l_out <- tryCatch(crs_markov(v_params[j, ]), error = function(e) NULL)
+    if (is.null(l_out)) next # impossible parameter set: log-likelihood -Inf
+    # TARGET 1: survival
+    m_llik[j, "Surv"] <- sum(dnorm(lst_targets$Surv$value,
+                                   mean = l_out$Surv,
+                                   sd = lst_targets$Surv$se, log = TRUE))
+  }
+  rowSums(m_llik)
+}
+```
+
 The optimization stage (`n_optim`) looks for local modes before the
 importance sampling begins:
 
 ```{r crs}
-crs_lb <- c(p_Mets = 0.04, p_DieMets = 0.04)
-crs_ub <- c(p_Mets = 0.16, p_DieMets = 0.16)
-
 set.seed(2018)
-fit_crs <- imis(
-  log_likelihood = function(params) {
-    sum(dnorm(crs_targets$Surv$value, crs_markov(params)$Surv,
-              crs_targets$Surv$se, log = TRUE))
-  },
-  log_prior = function(params) {
-    sum(dunif(params, crs_lb, crs_ub, log = TRUE))
-  },
-  sample_prior = function(n) {
-    cbind(p_Mets = runif(n, crs_lb[1], crs_ub[1]),
-          p_DieMets = runif(n, crs_lb[2], crs_ub[2]))
-  },
-  vectorized = FALSE, n_optim = 5, verbose = FALSE
-)
+fit_crs <- imis(calc_log_lik, calc_log_prior, sample_prior, n_optim = 5,
+                verbose = FALSE)
 fit_crs
 ```
 
 ```{r crs-pairs, fig.height = 5}
 plot(fit_crs$resample, col = adjustcolor("black", 0.2), pch = 20,
-     xlim = c(crs_lb[1], crs_ub[1]), ylim = c(crs_lb[2], crs_ub[2]))
+     xlim = c(v_lb[["p_Mets"]], v_ub[["p_Mets"]]),
+     ylim = c(v_lb[["p_DieMets"]], v_ub[["p_DieMets"]]))
 abline(0, 1, lty = 2)
 points(fit_crs$centers, col = "red", pch = 8)
 ```
@@ -226,15 +281,13 @@ seconds per run, evaluate the likelihood on several workers:
 ```{r parallel, eval = FALSE}
 library(future)
 plan(multisession, workers = availableCores(omit = 1))
-fit <- imis(log_likelihood, log_prior, sample_prior,
-            vectorized = FALSE, vectorized_prior = TRUE,
-            catch_errors = TRUE, parallel = TRUE)
+fit <- imis(calc_log_lik, calc_log_prior, sample_prior, parallel = TRUE)
 plan(sequential)
 ```
 
-Each batch of draws is split into one block per worker, so the cost of
-sending work to the workers is paid once per block rather than once per
-model run.
+Each batch of draws is split into one block of rows per worker, and each
+worker calls `calc_log_lik()` once on its block, so the cost of sending work
+to the workers is paid once per block rather than once per model run.
 
 ## References
 

@@ -67,7 +67,8 @@ can check the answer.
 y <- c(1.2, 0.8, 1.9, 1.4)
 
 log_likelihood <- function(theta) {
-  vapply(theta[, "mu"], function(m) sum(dnorm(y, m, 1, log = TRUE)), 0)
+  # y_i - mu, with one column per parameter set
+  colSums(dnorm(outer(y, theta[, "mu"], "-"), log = TRUE))
 }
 log_prior <- function(theta) dnorm(theta[, "mu"], 0, 2, log = TRUE)
 sample_prior <- function(n) cbind(mu = rnorm(n, 0, 2))
