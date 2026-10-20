@@ -197,6 +197,39 @@ The posterior resample can now replace the prior in a probabilistic
 sensitivity analysis, so that cost-effectiveness results reflect what the
 calibration targets say about the inputs.
 
+### Saving and reusing runs
+
+A fit keeps every draw with its log-prior, log-likelihood and importance
+weight (`fit$draws`, `fit$log_prior`, `fit$log_lik` and `fit$weights`), as
+well as the posterior resample. Save it with `saveRDS()` to analyze the runs
+later without running the model again:
+
+```{r save, eval = FALSE}
+saveRDS(fit, "sick_sicker_imis.rds")
+fit <- readRDS("sick_sicker_imis.rds")
+```
+
+Model runs from earlier work can be reused too. A calibration often starts
+with a random search: a sample from the prior, often a Latin hypercube
+sample, and the log-likelihood of each parameter set. `initial_draws` and
+`initial_log_lik` make that sample the initial stage of IMIS, so those
+parameter sets are not run again. The draws must be a sample *from the
+prior*, because IMIS weights them as prior draws.
+
+```{r reuse}
+# An earlier random search: draws from the prior and their log-likelihoods
+set.seed(1)
+m_search <- sample_prior(5000)
+v_llik_search <- calc_log_lik(m_search)
+m_search[which.max(v_llik_search), ] # best-fitting parameter set
+
+fit_reuse <- imis(calc_log_lik, calc_log_prior, sample_prior,
+                  initial_draws = m_search, initial_log_lik = v_llik_search,
+                  verbose = FALSE)
+fit_reuse$n_initial   # initial draws taken from the random search
+fit_reuse$n_lik_evals # new model runs, all after the initial stage
+```
+
 ## Non-identifiability: the cancer relative survival model
 
 In the three-state cancer relative survival (CRS) model, patients without

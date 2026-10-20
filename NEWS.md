@@ -1,3 +1,12 @@
+# imisr (development version)
+
+* `imis()` gains `initial_draws` and `initial_log_lik` to start from an
+  existing sample of the prior, such as a Latin hypercube sample from an
+  earlier random search, and its log-likelihoods, without running the model
+  again for those parameter sets (#1).
+* `imis()` no longer fails when an initial draw has zero prior density; such
+  draws now get an importance weight of zero.
+
 # imisr 0.1.0
 
 First release: a rewrite of the archived 'IMIS' package (Raftery and Bao).

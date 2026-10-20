@@ -6,8 +6,9 @@
 #' (IMIS; Steele, Raftery and Emond, 2006; Raftery and Bao, 2010).
 #'
 #' @section Algorithm:
-#' 1. **Initial stage.** Draw `n_initial` points from the prior and compute
-#'    their importance weights, which are proportional to the likelihood.
+#' 1. **Initial stage.** Draw `n_initial` points from the prior (or use the
+#'    ones supplied in `initial_draws`) and compute their importance weights,
+#'    which are proportional to the likelihood.
 #' 2. **Optimization stage** (only when `n_optim > 0`, "IMIS-opt"). Run
 #'    `n_optim` local optimizations of the log-posterior, each started from the
 #'    highest-weight draw not already near a mode found earlier, and add a
@@ -77,7 +78,8 @@
 #'   matrix of draws from the prior (a vector is accepted when there is a
 #'   single parameter). Column names are used as parameter names.
 #' @param n_initial Number of prior draws at the initial stage (\eqn{N_0}).
-#'   Defaults to `1000 * d`, where `d` is the number of parameters.
+#'   Defaults to `1000 * d`, where `d` is the number of parameters, or to the
+#'   number of rows of `initial_draws`.
 #' @param n_per_component Number of draws per new mixture component (\eqn{B}).
 #'   It is also the number of nearest neighbors used to estimate each new
 #'   component's covariance. Defaults to `100 * d`.
@@ -111,6 +113,16 @@
 #' @param optim_control List with the maximum number of iterations for the
 #'   optimization stage: `maxit_nm` (Nelder-Mead, default 1000) and
 #'   `maxit_bfgs` (BFGS, default 1000).
+#' @param initial_draws Optional matrix (or data frame) of parameter sets to
+#'   use as the initial stage instead of `sample_prior(n_initial)`, for
+#'   example a Latin hypercube sample of the prior from an earlier random
+#'   search. They must be a sample *from the prior*, because IMIS weights them
+#'   as prior draws. Columns are matched to the parameter names of
+#'   `sample_prior()` by name, or taken in the same order if unnamed.
+#' @param initial_log_lik Optional numeric vector with the log-likelihood of
+#'   each row of `initial_draws`, for example computed during an earlier
+#'   random search. When supplied, the likelihood is not evaluated again for
+#'   the initial stage. Use `-Inf` for impossible parameter sets.
 #' @param verbose Whether to print progress.
 #'
 #' @return An object of class `imis`, a list with:
@@ -134,8 +146,9 @@
 #'   \item{n_initial}{Number of draws in the initial stage.}
 #'   \item{converged}{Whether the stopping rule was met.}
 #'   \item{n_iter}{Number of importance sampling iterations run.}
-#'   \item{n_lik_evals}{Total number of likelihood evaluations, including
-#'     those made by the optimizers.}
+#'   \item{n_lik_evals}{Total number of likelihood evaluations made by
+#'     `imis()`, including those made by the optimizers. Log-likelihoods
+#'     supplied in `initial_log_lik` are not counted.}
 #'   \item{settings, call, elapsed}{Settings used, the call and run time
 #'     in seconds.}
 #'
@@ -175,6 +188,21 @@
 #'
 #' # Exact posterior mean for comparison
 #' sum(y) / (length(y) + 1 / 4)
+#'
+#' # Reuse draws from the prior whose log-likelihoods were computed earlier
+#' # (e.g. in a random search) as the initial stage, without recomputing them
+#' m_search <- cbind(mu = rnorm(4000, 0, 2))
+#' v_llik_search <- colSums(dnorm(outer(y, m_search[, "mu"], "-"), log = TRUE))
+#' fit_reuse <- imis(
+#'   log_likelihood = function(theta) {
+#'     colSums(dnorm(outer(y, theta[, "mu"], "-"), log = TRUE))
+#'   },
+#'   log_prior = function(theta) dnorm(theta[, "mu"], 0, 2, log = TRUE),
+#'   sample_prior = function(n) cbind(mu = rnorm(n, 0, 2)),
+#'   initial_draws = m_search, initial_log_lik = v_llik_search,
+#'   verbose = FALSE
+#' )
+#' fit_reuse$n_lik_evals # only the draws added after the initial stage
 #' @export
 imis <- function(log_likelihood, log_prior, sample_prior,
                  n_initial = NULL, n_per_component = NULL,
@@ -184,6 +212,7 @@ imis <- function(log_likelihood, log_prior, sample_prior,
                  vectorized = TRUE, vectorized_prior = vectorized,
                  parallel = FALSE, n_chunks = NULL,
                  catch_errors = FALSE, optim_control = list(),
+                 initial_draws = NULL, initial_log_lik = NULL,
                  verbose = TRUE) {
   cl <- match.call()
   t_start <- proc.time()[[3]]
@@ -209,6 +238,21 @@ imis <- function(log_likelihood, log_prior, sample_prior,
   m_probe <- as_draws(sample_prior(2L), 2L)
   n_d <- ncol(m_probe)
   v_names <- colnames(m_probe)
+  if (!is.null(initial_draws)) {
+    m_init <- check_initial_draws(initial_draws, n_d, v_names)
+    if (!is.null(n_initial) && n_initial != nrow(m_init)) {
+      stop("`n_initial` (", n_initial, ") differs from the number of rows of ",
+           "`initial_draws` (", nrow(m_init), "); leave `n_initial` unset.",
+           call. = FALSE)
+    }
+    n_initial <- nrow(m_init)
+    if (!is.null(initial_log_lik)) {
+      initial_log_lik <- check_initial_log_lik(initial_log_lik, n_initial)
+    }
+  } else if (!is.null(initial_log_lik)) {
+    stop("`initial_log_lik` needs the draws it belongs to in `initial_draws`.",
+         call. = FALSE)
+  }
   n_initial <- n_initial %||% (1000L * n_d)
   n_per_component <- n_per_component %||% (100L * n_d)
   check_count(n_initial, "n_initial", min = 2)
@@ -231,26 +275,48 @@ imis <- function(log_likelihood, log_prior, sample_prior,
   }
 
   # ---- Initial stage -------------------------------------------------------
-  m_x <- as_draws(sample_prior(n_initial), n_initial, v_names)
+  if (is.null(initial_draws)) {
+    m_x <- as_draws(sample_prior(n_initial), n_initial, v_names)
+  } else {
+    m_x <- m_init
+  }
   v_lp <- eval_prior(m_x)
   if (any(!is.finite(v_lp))) {
-    warning(sum(!is.finite(v_lp)), " draws from `sample_prior()` have zero ",
-            "density under `log_prior()`; check that the two functions ",
-            "describe the same prior.", call. = FALSE)
+    s_from <- if (is.null(initial_draws)) {
+      "draws from `sample_prior()`"
+    } else {
+      "rows of `initial_draws`"
+    }
+    warning(sum(!is.finite(v_lp)), " ", s_from, " have zero density under ",
+            "`log_prior()`; check that they describe the same prior.",
+            call. = FALSE)
   }
   v_prior_var <- apply(m_x, 2L, stats::var)
   if (any(!is.finite(v_prior_var) | v_prior_var <= 0)) {
     stop("Every parameter must vary in the prior sample.", call. = FALSE)
   }
   if (verbose) {
-    message(sprintf("IMIS: %d parameter(s), %d initial draws from the prior",
-                    n_d, n_initial))
+    message(sprintf("IMIS: %d parameter(s), %d initial draws %s", n_d,
+                    n_initial, if (is.null(initial_draws)) {
+                      "from the prior"
+                    } else {
+                      "supplied in `initial_draws`"
+                    }))
   }
-  t_lik <- proc.time()[[3]]
-  v_ll <- eval_lik(m_x, v_lp)
-  if (verbose) {
-    message(sprintf("  %d likelihoods evaluated in %.2f s", n_lik_evals,
-                    proc.time()[[3]] - t_lik))
+  if (is.null(initial_log_lik)) {
+    t_lik <- proc.time()[[3]]
+    v_ll <- eval_lik(m_x, v_lp)
+    if (verbose) {
+      message(sprintf("  %d likelihoods evaluated in %.2f s", n_lik_evals,
+                      proc.time()[[3]] - t_lik))
+    }
+  } else {
+    v_ll <- initial_log_lik
+    v_ll[!is.finite(v_lp)] <- -Inf
+    if (verbose) {
+      message(sprintf("  using the %d log-likelihoods supplied in ",
+                      n_initial), "`initial_log_lik`")
+    }
   }
   # Log of sum_c N_c * density_c(x): the mixture density times N. The prior is
   # the first component and the normals are added as IMIS proceeds.
@@ -269,7 +335,7 @@ imis <- function(log_likelihood, log_prior, sample_prior,
 
   for (k in 0:max_iter) {
     n <- nrow(m_x)
-    v_lw <- v_lp + v_ll - (v_log_env - log(n))
+    v_lw <- log_weights(v_lp, v_ll, v_log_env, n)
     l_stats <- weight_stats(v_lw, n_resample)
     if (is.null(l_stats)) {
       stop("All importance weights are zero: the likelihood is -Inf (or the ",
@@ -393,7 +459,7 @@ imis <- function(log_likelihood, log_prior, sample_prior,
     resample = m_resample,
     draws = m_x,
     weights = v_w,
-    log_weights = v_lp + v_ll - (v_log_env - log(nrow(m_x))),
+    log_weights = log_weights(v_lp, v_ll, v_log_env, nrow(m_x)),
     log_prior = v_lp,
     log_lik = v_ll,
     log_ml = l_stats$log_ml,
@@ -415,6 +481,15 @@ imis <- function(log_likelihood, log_prior, sample_prior,
     call = cl,
     elapsed = proc.time()[[3]] - t_start
   ), class = "imis")
+}
+
+# Log importance weights: log prior + log-likelihood - log mixture density.
+# Draws with zero prior density get weight zero; at the initial stage their
+# mixture density is also zero, so the difference would otherwise be NaN.
+log_weights <- function(v_lp, v_ll, v_log_env, n) {
+  v_lw <- v_lp + v_ll - (v_log_env - log(n))
+  v_lw[v_lp == -Inf] <- -Inf
+  v_lw
 }
 
 print_progress <- function(df_row, header) {

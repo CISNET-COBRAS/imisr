@@ -23,6 +23,8 @@ imis(
   n_chunks = NULL,
   catch_errors = FALSE,
   optim_control = list(),
+  initial_draws = NULL,
+  initial_log_lik = NULL,
   verbose = TRUE
 )
 }
@@ -45,7 +47,8 @@ matrix of draws from the prior (a vector is accepted when there is a
 single parameter). Column names are used as parameter names.}
 
 \item{n_initial}{Number of prior draws at the initial stage (\eqn{N_0}).
-Defaults to \code{1000 * d}, where \code{d} is the number of parameters.}
+Defaults to \code{1000 * d}, where \code{d} is the number of parameters, or to the
+number of rows of \code{initial_draws}.}
 
 \item{n_per_component}{Number of draws per new mixture component (\eqn{B}).
 It is also the number of nearest neighbors used to estimate each new
@@ -94,6 +97,18 @@ combinations make a model invalid.}
 optimization stage: \code{maxit_nm} (Nelder-Mead, default 1000) and
 \code{maxit_bfgs} (BFGS, default 1000).}
 
+\item{initial_draws}{Optional matrix (or data frame) of parameter sets to
+use as the initial stage instead of \code{sample_prior(n_initial)}, for
+example a Latin hypercube sample of the prior from an earlier random
+search. They must be a sample \emph{from the prior}, because IMIS weights them
+as prior draws. Columns are matched to the parameter names of
+\code{sample_prior()} by name, or taken in the same order if unnamed.}
+
+\item{initial_log_lik}{Optional numeric vector with the log-likelihood of
+each row of \code{initial_draws}, for example computed during an earlier
+random search. When supplied, the likelihood is not evaluated again for
+the initial stage. Use \code{-Inf} for impossible parameter sets.}
+
 \item{verbose}{Whether to print progress.}
 }
 \value{
@@ -118,8 +133,9 @@ number of draws, origin \code{"optim"} or \code{"weights"}, iteration).}
 \item{n_initial}{Number of draws in the initial stage.}
 \item{converged}{Whether the stopping rule was met.}
 \item{n_iter}{Number of importance sampling iterations run.}
-\item{n_lik_evals}{Total number of likelihood evaluations, including
-those made by the optimizers.}
+\item{n_lik_evals}{Total number of likelihood evaluations made by
+\code{imis()}, including those made by the optimizers. Log-likelihoods
+supplied in \code{initial_log_lik} are not counted.}
 \item{settings, call, elapsed}{Settings used, the call and run time
 in seconds.}
 }
@@ -132,8 +148,9 @@ p(\theta) L(\theta) d\theta} with incremental mixture importance sampling
 \section{Algorithm}{
 
 \enumerate{
-\item \strong{Initial stage.} Draw \code{n_initial} points from the prior and compute
-their importance weights, which are proportional to the likelihood.
+\item \strong{Initial stage.} Draw \code{n_initial} points from the prior (or use the
+ones supplied in \code{initial_draws}) and compute their importance weights,
+which are proportional to the likelihood.
 \item \strong{Optimization stage} (only when \code{n_optim > 0}, "IMIS-opt"). Run
 \code{n_optim} local optimizations of the log-posterior, each started from the
 highest-weight draw not already near a mode found earlier, and add a
@@ -217,6 +234,21 @@ summary(fit)
 
 # Exact posterior mean for comparison
 sum(y) / (length(y) + 1 / 4)
+
+# Reuse draws from the prior whose log-likelihoods were computed earlier
+# (e.g. in a random search) as the initial stage, without recomputing them
+m_search <- cbind(mu = rnorm(4000, 0, 2))
+v_llik_search <- colSums(dnorm(outer(y, m_search[, "mu"], "-"), log = TRUE))
+fit_reuse <- imis(
+  log_likelihood = function(theta) {
+    colSums(dnorm(outer(y, theta[, "mu"], "-"), log = TRUE))
+  },
+  log_prior = function(theta) dnorm(theta[, "mu"], 0, 2, log = TRUE),
+  sample_prior = function(n) cbind(mu = rnorm(n, 0, 2)),
+  initial_draws = m_search, initial_log_lik = v_llik_search,
+  verbose = FALSE
+)
+fit_reuse$n_lik_evals # only the draws added after the initial stage
 }
 \references{
 Raftery AE, Bao L (2010). Estimating and projecting trends in HIV/AIDS

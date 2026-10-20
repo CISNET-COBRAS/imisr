@@ -133,6 +133,57 @@ as_draws <- function(x, n, v_names = NULL) {
   x
 }
 
+# Coerce `initial_draws` into a numeric matrix whose columns match the
+# parameters of `sample_prior()`: by name when named, otherwise in order.
+check_initial_draws <- function(x, n_d, v_names) {
+  if (is.data.frame(x)) {
+    x <- as.matrix(x)
+  }
+  if (is.null(dim(x)) && n_d == 1L) {
+    x <- matrix(x, ncol = 1L)
+  }
+  if (!is.numeric(x) || is.null(dim(x)) || ncol(x) != n_d ||
+      nrow(x) < 2L) {
+    stop("`initial_draws` must be a numeric matrix with at least 2 rows and ",
+         "one column per parameter (", n_d, ").", call. = FALSE)
+  }
+  if (anyNA(x)) {
+    stop("`initial_draws` contains missing values.", call. = FALSE)
+  }
+  storage.mode(x) <- "double"
+  if (is.null(colnames(x))) {
+    colnames(x) <- v_names
+  } else if (!setequal(colnames(x), v_names)) {
+    stop("The columns of `initial_draws` (", toString(colnames(x)), ") do ",
+         "not match the parameters of `sample_prior()` (", toString(v_names),
+         ").", call. = FALSE)
+  }
+  x[, v_names, drop = FALSE]
+}
+
+# Check the log-likelihoods supplied for `initial_draws`, treating NA/NaN as
+# -Inf as is done for values returned by `log_likelihood()`.
+check_initial_log_lik <- function(x, n) {
+  if (!is.numeric(x) || length(x) != n) {
+    stop("`initial_log_lik` must be a numeric vector with one value per row ",
+         "of `initial_draws` (", n, ").", call. = FALSE)
+  }
+  x <- as.numeric(x)
+  v_bad <- is.na(x)
+  if (any(v_bad)) {
+    warning(sprintf(
+      "`initial_log_lik` has NA/NaN for %d of %d parameter sets; they were given a value of -Inf.",
+      sum(v_bad), n
+    ), call. = FALSE)
+    x[v_bad] <- -Inf
+  }
+  if (any(x == Inf)) {
+    stop("`initial_log_lik` contains +Inf. It must contain log-likelihoods, ",
+         "which are finite or -Inf.", call. = FALSE)
+  }
+  x
+}
+
 # Importance-weight diagnostics (Raftery and Bao, 2010, Section 3.1) plus the
 # marginal likelihood estimate and its delta-method standard error on the log
 # scale (their equations 4-7).

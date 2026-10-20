@@ -1,7 +1,7 @@
 Type: Package
 Package: imisr
 Title: Incremental Mixture Importance Sampling
-Version: 0.1.0
+Version: 0.1.0.9000
 Authors@R: c(
     person("Fernando", "Alarid-Escudero", , "falarid@stanford.edu",
            role = c("aut", "cre"),
