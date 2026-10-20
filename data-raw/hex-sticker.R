@@ -100,8 +100,23 @@ draw_sticker <- function() {
 
 # 518 x 600 px is the size pkgdown and usethis::use_logo() expect; draw at
 # twice that for high-density screens.
+n_width <- 1036 / 144
+n_height <- 1200 / 144
 dir.create("man/figures", showWarnings = FALSE, recursive = TRUE)
 png("man/figures/logo.png", width = 1036, height = 1200, res = 144,
     type = "quartz", bg = "transparent")
+draw_sticker()
+dev.off()
+
+# Vector files for printing, kept out of the package (data-raw/ is in
+# .Rbuildignore). The Quartz PDF embeds the Avenir Next font, so it displays
+# the same everywhere; the SVG names the font, so it needs Avenir Next
+# installed to display as designed.
+quartz(type = "pdf", file = "data-raw/logo.pdf", width = n_width,
+       height = n_height, bg = "transparent")
+draw_sticker()
+dev.off()
+svglite::svglite("data-raw/logo.svg", width = n_width, height = n_height,
+                 bg = "transparent")
 draw_sticker()
 dev.off()
