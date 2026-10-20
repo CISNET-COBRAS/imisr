@@ -11,7 +11,8 @@ Authors@R: c(
     person("Le", "Bao", role = "ctb",
            comment = "Author of the original 'IMIS' package"),
     person("Jorge", "Roa", , "jorgeroa@stanford.edu", role = "ctb",
-           comment = "Hex sticker design")
+           comment = c(ORCID = "0000-0002-3972-9793",
+                       "Hex sticker design and package testing"))
   )
 Description: Draws samples from a posterior distribution and estimates the
     marginal likelihood (model evidence) with incremental mixture
