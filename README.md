@@ -1,7 +1,7 @@
 # imisr
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/CISNET-COBRAS/imis_reloaded/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/CISNET-COBRAS/imis_reloaded/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/CISNET-COBRAS/imisr/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/CISNET-COBRAS/imisr/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 **imisr** implements incremental mixture importance sampling (IMIS) for
@@ -36,7 +36,7 @@ likelihoods (model evidence). It is a rewrite of the archived
 
 ```r
 # install.packages("remotes")
-remotes::install_github("CISNET-COBRAS/imis_reloaded")
+remotes::install_github("CISNET-COBRAS/imisr")
 ```
 
 ## Example

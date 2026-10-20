@@ -15,8 +15,8 @@ state-transition model to observed data.
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/CISNET-COBRAS/imis_reloaded}
-  \item Report bugs at \url{https://github.com/CISNET-COBRAS/imis_reloaded/issues}
+  \item \url{https://github.com/CISNET-COBRAS/imisr}
+  \item Report bugs at \url{https://github.com/CISNET-COBRAS/imisr/issues}
 }
 
 }

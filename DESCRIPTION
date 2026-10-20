@@ -29,8 +29,8 @@ Description: Draws samples from a posterior distribution and estimates the
     <doi:10.1198/106186006X132358>); and likelihood evaluations can run
     in parallel through the 'future' framework.
 License: GPL (>= 3)
-URL: https://github.com/CISNET-COBRAS/imis_reloaded
-BugReports: https://github.com/CISNET-COBRAS/imis_reloaded/issues
+URL: https://github.com/CISNET-COBRAS/imisr
+BugReports: https://github.com/CISNET-COBRAS/imisr/issues
 Depends:
     R (>= 4.0.0)
 Imports:

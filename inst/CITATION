@@ -8,7 +8,7 @@ bibentry(
     sub("-.*", "", meta$`Date/Publication`)
   },
   note = paste("R package version", meta$Version),
-  url = "https://github.com/CISNET-COBRAS/imis_reloaded",
+  url = "https://github.com/CISNET-COBRAS/imisr",
   textVersion = paste0(
     "Alarid-Escudero F, Jalal H. imisr: Incremental Mixture Importance ",
     "Sampling. R package version ", meta$Version, "."
