@@ -1,16 +1,16 @@
 bibentry(
   bibtype = "Manual",
   title = "{imisr}: Incremental Mixture Importance Sampling",
-  author = c(person("Fernando", "Alarid-Escudero"), person("Hawre", "Jalal")),
+  author = person("Fernando", "Alarid-Escudero"),
   year = if (is.null(meta$`Date/Publication`)) {
     format(Sys.Date(), "%Y")
   } else {
     sub("-.*", "", meta$`Date/Publication`)
   },
   note = paste("R package version", meta$Version),
-  url = "https://github.com/CISNET-COBRAS/imisr",
+  url = "https://github.com/FerAlLab-git/imisr",
   textVersion = paste0(
-    "Alarid-Escudero F, Jalal H. imisr: Incremental Mixture Importance ",
+    "Alarid-Escudero F. imisr: Incremental Mixture Importance ",
     "Sampling. R package version ", meta$Version, "."
   )
 )

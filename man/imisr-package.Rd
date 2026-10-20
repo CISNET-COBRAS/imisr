@@ -15,8 +15,8 @@ state-transition model to observed data.
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://github.com/CISNET-COBRAS/imisr}
-  \item Report bugs at \url{https://github.com/CISNET-COBRAS/imisr/issues}
+  \item \url{https://github.com/FerAlLab-git/imisr}
+  \item Report bugs at \url{https://github.com/FerAlLab-git/imisr/issues}
 }
 
 }
@@ -26,7 +26,6 @@ Useful links:
 Authors:
 \itemize{
   \item Fernando Alarid-Escudero \email{falarid@stanford.edu} (\href{https://orcid.org/0000-0001-5076-1172}{ORCID})
-  \item Hawre Jalal \email{hjalal@uottawa.ca} (\href{https://orcid.org/0000-0002-8224-6834}{ORCID})
 }
 
 Other contributors:
