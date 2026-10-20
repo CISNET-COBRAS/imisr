@@ -17,7 +17,7 @@ Description: Draws samples from a posterior distribution and estimates the
     marginal likelihood (model evidence) with incremental mixture
     importance sampling (IMIS). Starting from a sample of the prior, the
     importance sampling function is built up iteratively as a defensive
-    mixture of the prior and multivariate normal components centred where
+    mixture of the prior and multivariate normal components centered where
     the current importance weights are largest, optionally after an
     optimization stage that locates local posterior modes ("IMIS-opt").
     Designed for calibrating mechanistic and simulation models, whose

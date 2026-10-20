@@ -48,7 +48,7 @@ single parameter). Column names are used as parameter names.}
 Defaults to \code{1000 * d}, where \code{d} is the number of parameters.}
 
 \item{n_per_component}{Number of draws per new mixture component (\eqn{B}).
-It is also the number of nearest neighbours used to estimate each new
+It is also the number of nearest neighbors used to estimate each new
 component's covariance. Defaults to \code{100 * d}.}
 
 \item{n_resample}{Size of the posterior resample (\eqn{J}).}
@@ -136,11 +136,11 @@ their importance weights, which are proportional to the likelihood.
 \item \strong{Optimization stage} (only when \code{n_optim > 0}, "IMIS-opt"). Run
 \code{n_optim} local optimizations of the log-posterior, each started from the
 highest-weight draw not already near a mode found earlier, and add a
-normal component centred at each mode with covariance equal to the
+normal component centered at each mode with covariance equal to the
 inverse Hessian. This lets the sampler reach modes the prior sample
 missed.
 \item \strong{Importance sampling stage.} Repeat until the stopping rule holds or
-\code{max_iter} is reached: add \code{n_centers} normal components centred at the
+\code{max_iter} is reached: add \code{n_centers} normal components centered at the
 highest-weight draws, each with the weighted covariance of the
 \code{n_per_component} draws nearest to it; draw new points; and recompute
 every importance weight against the \emph{whole} mixture,

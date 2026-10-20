@@ -11,11 +11,11 @@
 #' 2. **Optimization stage** (only when `n_optim > 0`, "IMIS-opt"). Run
 #'    `n_optim` local optimizations of the log-posterior, each started from the
 #'    highest-weight draw not already near a mode found earlier, and add a
-#'    normal component centred at each mode with covariance equal to the
+#'    normal component centered at each mode with covariance equal to the
 #'    inverse Hessian. This lets the sampler reach modes the prior sample
 #'    missed.
 #' 3. **Importance sampling stage.** Repeat until the stopping rule holds or
-#'    `max_iter` is reached: add `n_centers` normal components centred at the
+#'    `max_iter` is reached: add `n_centers` normal components centered at the
 #'    highest-weight draws, each with the weighted covariance of the
 #'    `n_per_component` draws nearest to it; draw new points; and recompute
 #'    every importance weight against the *whole* mixture,
@@ -79,7 +79,7 @@
 #' @param n_initial Number of prior draws at the initial stage (\eqn{N_0}).
 #'   Defaults to `1000 * d`, where `d` is the number of parameters.
 #' @param n_per_component Number of draws per new mixture component (\eqn{B}).
-#'   It is also the number of nearest neighbours used to estimate each new
+#'   It is also the number of nearest neighbors used to estimate each new
 #'   component's covariance. Defaults to `100 * d`.
 #' @param n_resample Size of the posterior resample (\eqn{J}).
 #' @param max_iter Maximum number of importance sampling iterations.

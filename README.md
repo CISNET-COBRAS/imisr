@@ -104,8 +104,8 @@ workflow, including a non-identifiable model with a bimodal posterior.
 1. Sample from the prior and weight each draw by its likelihood.
 2. *(Optional)* Find local posterior modes by optimization and start the
    mixture with a normal component at each.
-3. Repeatedly add a normal component centred at the highest-weight draw,
-   with covariance estimated from its nearest neighbours; draw from it; and
+3. Repeatedly add a normal component centered at the highest-weight draw,
+   with covariance estimated from its nearest neighbors; draw from it; and
    reweight **all** draws against the defensive mixture of the prior and every
    component.
 4. Stop when the weights are close to uniform (the expected number of unique

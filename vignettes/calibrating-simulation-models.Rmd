@@ -225,7 +225,7 @@ seconds per run, evaluate the likelihood on several workers:
 
 ```{r parallel, eval = FALSE}
 library(future)
-plan(multisession, workers = parallelly::availableCores(omit = 1))
+plan(multisession, workers = availableCores(omit = 1))
 fit <- imis(log_likelihood, log_prior, sample_prior,
             vectorized = FALSE, vectorized_prior = TRUE,
             catch_errors = TRUE, parallel = TRUE)
