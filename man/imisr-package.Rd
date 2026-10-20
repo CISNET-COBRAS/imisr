@@ -32,6 +32,7 @@ Other contributors:
 \itemize{
   \item Adrian E. Raftery (Author of the original 'IMIS' package) [contributor]
   \item Le Bao (Author of the original 'IMIS' package) [contributor]
+  \item Jorge Roa \email{jorgeroa@stanford.edu} (Hex sticker design) [contributor]
 }
 
 }
