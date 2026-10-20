@@ -29,8 +29,10 @@ likelihoods (model evidence). It is a rewrite of the archived
   compare models.
 - `print()`, `summary()`, `plot()` and `as.matrix()` methods, and a drop-in
   `imis_legacy()` for scripts written for `IMIS::IMIS()`.
-- Example **state-transition models** with calibration targets
-  (Sick-Sicker and cancer relative survival).
+- Example **state-transition models** with calibration targets: the
+  Sick-Sicker model from the DARTH tutorials (Krijkamp et al., 2018;
+  Alarid-Escudero et al., 2023a, 2023b) and the cancer relative survival
+  model (Alarid-Escudero et al., 2018).
 
 ## Installation
 
@@ -41,8 +43,9 @@ remotes::install_github("FerAlLab-git/imisr")
 
 ## Example
 
-Calibrate the three unknown inputs of the Sick-Sicker model to observed
-survival, prevalence and the proportion of the sick in the "sick" state:
+Calibrate the three unknown inputs of the Sick-Sicker model (Krijkamp et
+al., 2018; Alarid-Escudero et al., 2023a, 2023b) to observed survival,
+prevalence and the proportion of the sick in the "sick" state:
 
 ```r
 library(imisr)
@@ -141,6 +144,28 @@ workflow, including a non-identifiable model with a bimodal posterior.
 
 ## References
 
+- Alarid-Escudero F, MacLehose RF, Peralta Y, Kuntz KM, Enns EA (2018).
+  Nonidentifiability in model calibration and implications for medical
+  decision making. *Medical Decision Making*, 38(7), 810–821.
+  [doi:10.1177/0272989X18792283](https://doi.org/10.1177/0272989X18792283)
+- Alarid-Escudero F, Krijkamp E, Enns EA, Yang A, Hunink MGM, Pechlivanoglou
+  P, Jalal H (2023a). An introductory tutorial on cohort state-transition
+  models in R using a cost-effectiveness analysis example. *Medical Decision
+  Making*, 43(1), 3–20.
+  [doi:10.1177/0272989X221103163](https://doi.org/10.1177/0272989X221103163)
+- Alarid-Escudero F, Krijkamp E, Enns EA, Yang A, Hunink MGM, Pechlivanoglou
+  P, Jalal H (2023b). A tutorial on time-dependent cohort state-transition
+  models in R using a cost-effectiveness analysis example. *Medical Decision
+  Making*, 43(1), 21–41.
+  [doi:10.1177/0272989X221121747](https://doi.org/10.1177/0272989X221121747)
+- Krijkamp EM, Alarid-Escudero F, Enns EA, Jalal HJ, Hunink MGM,
+  Pechlivanoglou P (2018). Microsimulation modeling for health decision
+  sciences using R: a tutorial. *Medical Decision Making*, 38(3), 400–422.
+  [doi:10.1177/0272989X18754513](https://doi.org/10.1177/0272989X18754513)
+- Menzies NA, Soeteman DI, Pandya A, Kim JJ (2017). Bayesian methods for
+  calibrating health policy models: a tutorial. *PharmacoEconomics*, 35(6),
+  613–624.
+  [doi:10.1007/s40273-017-0494-4](https://doi.org/10.1007/s40273-017-0494-4)
 - Raftery AE, Bao L (2010). Estimating and projecting trends in HIV/AIDS
   generalized epidemics using incremental mixture importance sampling.
   *Biometrics*, 66(4), 1162–1173.
@@ -149,7 +174,3 @@ workflow, including a non-identifiable model with a bimodal posterior.
   finite mixture models via incremental mixture importance sampling (IMIS).
   *Journal of Computational and Graphical Statistics*, 15(3), 712–734.
   [doi:10.1198/106186006X132358](https://doi.org/10.1198/106186006X132358)
-- Menzies NA, Soeteman DI, Pandya A, Kim JJ (2017). Bayesian methods for
-  calibrating health policy models: a tutorial. *PharmacoEconomics*, 35(6),
-  613–624.
-  [doi:10.1007/s40273-017-0494-4](https://doi.org/10.1007/s40273-017-0494-4)

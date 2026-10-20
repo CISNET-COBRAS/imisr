@@ -6,20 +6,24 @@
 #' model outputs that correspond to the calibration targets
 #' [crs_targets] and [sick_sicker_targets].
 #'
-#' **Cancer relative survival (CRS) model** (`crs_markov()`). Three states:
-#' no evidence of disease (NED), metastatic disease (Mets) and death. Each
-#' annual cycle, patients in NED develop metastases with probability
-#' `p_Mets`, and patients with metastases die with probability `p_DieMets`.
+#' **Cancer relative survival (CRS) model** (`crs_markov()`), first described
+#' by Alarid-Escudero et al. (2018) to illustrate non-identifiability in
+#' calibration. Three states: no evidence of disease (NED), metastatic
+#' disease (Mets) and death. Each annual cycle, patients in NED develop
+#' metastases with probability `p_Mets`, and patients with metastases die
+#' with probability `p_DieMets`.
 #' The model runs for 60 cycles and returns overall survival at cycles 2 to
 #' 60. Survival depends on the two parameters symmetrically, so survival data
 #' alone cannot tell them apart: the model is *non-identifiable* and its
-#' posterior has two modes (Alarid-Escudero et al., 2018).
+#' posterior has two modes.
 #'
-#' **Sick-Sicker model** (`sick_sicker_markov()`). Four states: healthy (H),
-#' sick (S1), sicker (S2) and dead (D), for a cohort followed from age 25 to
-#' 55 in annual cycles. Calibrated parameters are the probability of
-#' progressing from S1 to S2 (`p_S1S2`), and the hazard ratios of death in S1
-#' (`hr_S1`) and S2 (`hr_S2`) relative to healthy. Other parameters are fixed:
+#' **Sick-Sicker model** (`sick_sicker_markov()`), used throughout the DARTH
+#' tutorials on decision models in R (Krijkamp et al., 2018; Alarid-Escudero
+#' et al., 2023a, 2023b). Four states: healthy (H), sick (S1), sicker (S2)
+#' and dead (D), for a cohort followed from age 25 to 55 in annual cycles.
+#' Calibrated parameters are the probability of progressing from S1 to S2
+#' (`p_S1S2`), and the hazard ratios of death in S1 (`hr_S1`) and S2
+#' (`hr_S2`) relative to healthy. Other parameters are fixed:
 #' probability of death when healthy 0.005, of becoming sick 0.15, and of
 #' recovering from S1 0.5. Returns survival and disease prevalence for cycles
 #' 1 to 30, and the proportion of the sick who are in S1 at cycles 10, 20 and
@@ -37,6 +41,21 @@
 #' Nonidentifiability in model calibration and implications for medical
 #' decision making. *Medical Decision Making*, 38(7), 810-821.
 #' \doi{10.1177/0272989X18792283}
+#'
+#' Alarid-Escudero F, Krijkamp E, Enns EA, Yang A, Hunink MGM, Pechlivanoglou
+#' P, Jalal H (2023a). An introductory tutorial on cohort state-transition
+#' models in R using a cost-effectiveness analysis example. *Medical Decision
+#' Making*, 43(1), 3-20. \doi{10.1177/0272989X221103163}
+#'
+#' Alarid-Escudero F, Krijkamp E, Enns EA, Yang A, Hunink MGM, Pechlivanoglou
+#' P, Jalal H (2023b). A tutorial on time-dependent cohort state-transition
+#' models in R using a cost-effectiveness analysis example. *Medical Decision
+#' Making*, 43(1), 21-41. \doi{10.1177/0272989X221121747}
+#'
+#' Krijkamp EM, Alarid-Escudero F, Enns EA, Jalal HJ, Hunink MGM,
+#' Pechlivanoglou P (2018). Microsimulation modeling for health decision
+#' sciences using R: a tutorial. *Medical Decision Making*, 38(3), 400-422.
+#' \doi{10.1177/0272989X18754513}
 #' @examples
 #' crs_markov(c(p_Mets = 0.10, p_DieMets = 0.05))$Surv[1:5]
 #' str(sick_sicker_markov(c(p_S1S2 = 0.105, hr_S1 = 3, hr_S2 = 10)))

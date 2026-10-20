@@ -25,6 +25,13 @@ crs_targets
 }
 \description{
 Simulated observed survival of a cohort of 200 patients, used to calibrate
-\code{\link[=crs_markov]{crs_markov()}}.
+\code{\link[=crs_markov]{crs_markov()}}, the cancer relative survival model of Alarid-Escudero et
+al. (2018).
+}
+\references{
+Alarid-Escudero F, MacLehose RF, Peralta Y, Kuntz KM, Enns EA (2018).
+Nonidentifiability in model calibration and implications for medical
+decision making. \emph{Medical Decision Making}, 38(7), 810-821.
+\doi{10.1177/0272989X18792283}
 }
 \keyword{datasets}

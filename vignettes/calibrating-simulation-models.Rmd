@@ -26,11 +26,14 @@ running the model on those samples propagates the calibrated uncertainty to
 any outcome.
 
 This vignette calibrates two cohort state-transition models included in the
-package: the Sick-Sicker model and a three-state cancer relative survival
-model (see `?example_models`).
+package: the Sick-Sicker model (Krijkamp et al., 2018; Alarid-Escudero et
+al., 2023a, 2023b) and a three-state cancer relative survival model
+(Alarid-Escudero et al., 2018); see `?example_models`.
 
 ## The Sick-Sicker model
 
+The Sick-Sicker model is used throughout the DARTH tutorials on decision
+models in R (Krijkamp et al., 2018; Alarid-Escudero et al., 2023a, 2023b).
 A cohort of 25-year-olds moves each year between four states: healthy (H),
 sick (S1), sicker (S2) and dead (D). We calibrate three inputs:
 
@@ -199,7 +202,9 @@ calibration targets say about the inputs.
 
 ## Non-identifiability: the cancer relative survival model
 
-In the three-state cancer relative survival (CRS) model, patients without
+The three-state cancer relative survival (CRS) model was first described by
+Alarid-Escudero et al. (2018) to illustrate non-identifiability in
+calibration. In this model, patients without
 evidence of disease develop metastases with annual probability `p_Mets`, and
 patients with metastases die with probability `p_DieMets`. Survival depends
 on the two probabilities symmetrically, so survival data cannot tell which is
@@ -294,6 +299,22 @@ to the workers is paid once per block rather than once per model run.
 Alarid-Escudero F, MacLehose RF, Peralta Y, Kuntz KM, Enns EA (2018).
 Nonidentifiability in model calibration and implications for medical
 decision making. *Medical Decision Making*, 38(7), 810-821.
+doi:10.1177/0272989X18792283.
+
+Alarid-Escudero F, Krijkamp E, Enns EA, Yang A, Hunink MGM, Pechlivanoglou
+P, Jalal H (2023a). An introductory tutorial on cohort state-transition
+models in R using a cost-effectiveness analysis example. *Medical Decision
+Making*, 43(1), 3-20. doi:10.1177/0272989X221103163.
+
+Alarid-Escudero F, Krijkamp E, Enns EA, Yang A, Hunink MGM, Pechlivanoglou
+P, Jalal H (2023b). A tutorial on time-dependent cohort state-transition
+models in R using a cost-effectiveness analysis example. *Medical Decision
+Making*, 43(1), 21-41. doi:10.1177/0272989X221121747.
+
+Krijkamp EM, Alarid-Escudero F, Enns EA, Jalal HJ, Hunink MGM,
+Pechlivanoglou P (2018). Microsimulation modeling for health decision
+sciences using R: a tutorial. *Medical Decision Making*, 38(3), 400-422.
+doi:10.1177/0272989X18754513.
 
 Menzies NA, Soeteman DI, Pandya A, Kim JJ (2017). Bayesian methods for
 calibrating health policy models: a tutorial. *PharmacoEconomics*, 35(6),
